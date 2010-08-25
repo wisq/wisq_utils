@@ -96,7 +96,7 @@ end
 
 diff_no_tabs = diff.map do |line|
   if line =~ /^\+/
-    line.gsub("\t", "  ")
+    line.gsub("\t", soft_tab)
   else
     line
   end
