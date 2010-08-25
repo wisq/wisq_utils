@@ -15,6 +15,23 @@
 #   -f   Run even if there are uncommitted changes.
 #   -##  Specify soft tab width.  Default is 2 spaces.
 #
+# Examples:
+#
+#   tabify master
+#     Remove tabs for changes compared against branch "master", e.g. on your
+#     topic branch.
+#
+#   tabify master some/file.js another/file.rb
+#     Same as above, except it only alters the named files.
+#
+#   tabify HEAD^
+#     Remove tabs from the last git commit.
+#
+#   tabify -f
+#     Remove tabs from pending git changes.
+#     Note that it's safer to commit, then run "tabify HEAD^" (above).
+#     You can then preview your changes and either commit or amend them.
+#
 
 require 'rubygems'
 require 'open4'
