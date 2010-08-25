@@ -1,0 +1,37 @@
+Description
+-----------
+
+These are just various tools I use in development.
+
+I'm releasing all these scripts into the public domain. Feel free to fork them
+and modify them all you want. If you think your changes might be useful to
+others, let me know and I'll be happy to merge them.
+
+
+Ruby paths
+----------
+
+Since these scripts rely on external gems, they are designed to integrate
+cleanly with RVM for those who use it. Simply choose a Ruby version and gemset
+and run
+
+  rvm wrapper <version>@<gemset> wisq_utils
+  
+then run
+
+  wisq_utils_gem install bundler
+  wisq_utils_ruby -e 'exec("bundle install")'
+
+to install the required gems.
+
+If you are running with a global Ruby rather than RVM, you can just create a
+symbolic link to your Ruby executable (typically /usr/bin/ruby), name it
+"wisq_utils_ruby", and put it somewhere in your $PATH.
+
+
+Obligatory legal stuff
+----------------------
+
+These tools are released with NO WARRANTY. Although I try to write code that
+will operate safely and not destroy data, I make no guarantees. You use these
+tools at your own risk.
