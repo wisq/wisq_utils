@@ -417,10 +417,10 @@ class Uni
   ### Timeouts ###
   
   def workers_timeout
-    config.preload_app ? 30 : 10
+    config.preload_app ? 60 : 20
   end
   def connect_timeout
-    config.preload_app ? 10 : 30
+    config.preload_app ? 20 : 60
   end
   
   
