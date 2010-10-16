@@ -8,6 +8,13 @@
 # See http://unicorn.bogomips.org/Unicorn/Configurator.html for complete
 # documentation.
 
+# UNITERM USERS: Uncomment the following.  See the "UNITERM" file.
+#
+# if uni = ENV['UNI_LIB_PATH']
+#   $LOAD_PATH << uni
+#   require 'uniterm/config'
+# end
+
 # Use at least one worker per core if you're on a dedicated server,
 # more will usually help for _short_ waits on databases/caches.
 worker_processes 4
@@ -15,8 +22,7 @@ worker_processes 4
 
 # Help ensure your application will always spawn in the symlinked
 # "current" directory that Capistrano sets up.
-my_work_dir = "/path/to/app/current"
-# (you can use Ruby here, e.g. ENV['HOME'] + '/some/path')
+my_work_dir = ENV['HOME'] + '/path/to/project'
 working_directory my_work_dir # available in 0.94.0+
 # (Required by uni.  I use a variable here for convenience later.)
 
@@ -27,7 +33,11 @@ listen '127.0.0.1:3000', :tcp_nopush => true
 # (Required by uni, but it will only use the LAST "listen" command.)
 
 # Nuke workers after 30 seconds instead of 60 seconds (the default).
-timeout 30
+if defined?(Uniterm)
+  timeout 300 # don't interrupt debugging
+else
+  timeout 30
+end
 
 # PID file.
 pid ENV['PIDFILE']
@@ -60,6 +70,8 @@ end
 GC.respond_to?(:copy_on_write_friendly=) and GC.copy_on_write_friendly = true
 
 before_fork do |server, worker|
+  defined?(Uniterm) and Uniterm::Config.before_fork(server, worker)
+
   # the following is highly recomended for Rails + "preload_app true"
   # as there's no need for the master process to hold a connection
   defined?(ActiveRecord::Base) and
@@ -88,6 +100,8 @@ before_fork do |server, worker|
 end
 
 after_fork do |server, worker|
+  defined?(Uniterm) and Uniterm::Config.after_fork(server, worker)
+
   # per-process listener ports for debugging/admin/migrations
   # addr = "127.0.0.1:#{9293 + worker.nr}"
   # server.listen(addr, :tries => -1, :delay => 5, :tcp_nopush => true)
@@ -102,3 +116,5 @@ after_fork do |server, worker|
   # between any number of forked children (assuming your kernel
   # correctly implements pread()/pwrite() system calls)
 end
+
+defined?(Uniterm) and Uniterm::Config.after_config

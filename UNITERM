@@ -1,0 +1,100 @@
+UNITERM: Mac OSX Terminal.app integration for Unicorn
+
+
+Description
+-----------
+
+Unicorn is a fantastic way to run your Rails and other Rack web applications
+in a production environment. But there are also some advantages to running it
+in development, too, such as increased performance and seamless restarts.
+
+However, a major disadvantage of using Unicorn for local development is that,
+with multiple worker processes, you often lose the ability to run the
+debugger. If your Unicorn has been backgrounded, or if multiple workers hit
+debug breakpoints at the same time, your terminal can get rather messed up.
+
+"Uniterm" is an extension to the "uni" Unicorn launcher. Uni will still work
+fine without Uniterm. But once Uniterm is applied, the Unicorn master process
+and each worker process become their own tabs within an OSX Terminal.app
+window. You can monitor each one independently, run debuggers in any or all
+workers as needed, and monitor restarts in a very visual way.
+
+
+Requirements
+------------
+
+"Uni" itself requires no gems (for now), but the Terminal.app integration
+scripts do. Please see the "Ruby Paths" section of the README file for more
+information.
+
+Uniterm has been tested on Mac OS X v10.6 "Snow Leopard" only. Patches for
+earlier OSX versions or other operating systems are welcome.
+
+
+Setting up
+----------
+
+A complete Uniterm setup requires the following:
+
+1. Modifications to the Unicorn configuration.
+
+   The example config in "examples/uni.conf.rb" has Uniterm support built-in
+   and ready to go. You must uncomment the "UNITERM" block near the top.
+   
+   There are a few other integration points that use the "Uni::Terminal"
+   class; these will all load conditionally based on whether you've
+   uncommented the top block or not.
+
+2. A "Uniterm" Terminal.app profile, and/or one for each Unicorn config.
+
+   This allows you to theme Uniterm differently than your regular Terminal
+   profile, or to create different themes for each Unicorn config.
+   
+   Uniterm will first search for a profile named "Uni-" plus your config
+   name. If you run "uni foo", your profile will be "Uni-foo". If it can't
+   find that, it will search for a generic "Uniterm" profile instead.
+
+   Recommended profile settings:
+      * Title options: Uncheck "active process name".
+      * Shell: Run command "/bin/sleep 9999999", don't run inside shell.
+      * When the shell exits: Close the window.
+      * Prompt before closing: Never.
+
+   You may wish to check "Settings name" for the window title. I also prefer
+   to set a different background colour to easily identify different
+   configurations.
+
+3. OPTIONAL: A small addition to your application's runtime configuration.
+
+   This can go in your config/environments/development.rb file (Rails):
+
+if Kernel.respond_to?(:uniterm_debugger_new) && !Kernel.respond_to?(:uniterm_debugger_old)
+  Kernel.send(:alias_method, :uniterm_debugger_old, :debugger)
+  Kernel.send(:alias_method, :debugger, :uniterm_debugger_new)
+end
+
+   This is an optional step, but if you have "preload_app false" in your
+   Unicorn config and you _don't_ do this, Uniterm may not be able to take you
+   to the appropriate tab when one of the workers issues a "debugger" call.
+
+
+Running it
+----------
+
+Launch your Unicorn the same way you would with uni, i.e. "uni <config>".
+You should see a new Terminal.app window appear with the master process.
+
+If "preload_app" is false, you should then see multiple worker tabs open
+almost immediately. Each one will be loading the application independently.
+When restarting, the workers will disappear and reappear, while the master tab
+will remain.
+
+If "preload_app" is true, the master tab will take a moment to load the
+application, and then the worker tabs will open and be ready immediately.
+When restarting, you will see a new master appear, then several workers, then
+the old workers will close, and finally the old master will close.
+
+When your app calls "debugger" to open the Ruby debugger (ruby-debug gem),
+Uniterm will take you back to the Terminal app and raise the window and tab
+associated with the worker that needs debugging.  This prevents you having to
+search through the tabs to find it.

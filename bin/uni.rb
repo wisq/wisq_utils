@@ -121,6 +121,8 @@ class Uni
 
     make_run_path
     ENV['PIDFILE'] = pid_file
+    ENV['UNI_LIB_PATH'] = Pathname.new(__FILE__).realpath.dirname + '../lib'
+    ENV['UNI_CONFIG_NAME'] = @name
     save_config
 
     Dir.chdir(work_dir)
@@ -436,6 +438,7 @@ class Uni
     end
 
     def load(file)
+      ENV.delete('UNI_LIB_PATH')
       eval(File.read(file))    
     end
 
