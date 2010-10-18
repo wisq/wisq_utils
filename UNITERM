@@ -58,7 +58,11 @@ A complete Uniterm setup requires the following:
       * Title options: Uncheck "active process name".
       * Shell: Run command "/bin/sleep 9999999", don't run inside shell.
       * When the shell exits: Close the window.
-      * Prompt before closing: Never.
+      * Prompt before closing:
+        * If you use "sleep" for your shell (per above), use "Always".
+          This prevents accidentally closing tabs and messing up Unicorn.
+        * Otherwise, select "Never".  (Also select this if, for some reason,
+          it prompts you to close tabs when workers terminate.)
 
    You may wish to check "Settings name" for the window title. I also prefer
    to set a different background colour to easily identify different
