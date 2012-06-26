@@ -23,26 +23,11 @@
 #   full restart (SIGUSR2) based on the "preload_app" setting.
 #   Both approaches should provide a seamless rolling restart.
 #
-# RVM integration:
-#
-#   If the working_directory contains a trusted ".rvmrc" file, uni will
-#   read it and use the environment variables it generates.
-#
-#   Untrusted .rvmrc files are ignored.  Never-seen .rvmrc files are
-#   rejected with an error.  Make sure you've already entered that
-#   directory with an RVM-enabled shell and chosen whether or not to
-#   trust the .rvmrc file.
-#
-#   When running uni with RVM integration, you don't need the Unicorn gem
-#   installed in your current RVM gemset -- it only needs to be installed
-#   in the .rvmrc target gemset.
-#
 # Required configuration parameters:
 #   (You _must_ specify these in the config, even if you use the default!)
 #
 #   working_directory
-#     uni will chdir to this directory before running Unicorn, and will
-#     read a trusted .rvmrc file from this directory if present.
+#     uni will chdir to this directory before running Unicorn.
 #
 #   preload_app
 #     If true, uni must perform a full restart, since the application code
@@ -71,7 +56,6 @@ require 'socket'
 
 class Uni
   HOME_DIR = Pathname.new(ENV['HOME'])
-  RVM_PATH = HOME_DIR + '.rvm'
 
   UNI_PATH     = HOME_DIR + '.uni'
   CONFIG_PATH  = UNI_PATH + 'conf'
@@ -115,9 +99,6 @@ class Uni
 
   def run
     work_dir = Pathname.new(config.working_directory)
-    rvmrc = work_dir + '.rvmrc'
-
-    load_rvmrc(rvmrc) if rvmrc.exist?
 
     make_run_path
     ENV['PIDFILE'] = pid_file
@@ -320,47 +301,6 @@ class Uni
         yield [pid, command]
       end
     end
-  end
-
-
-  ### RVM integration ###
-
-  def rvmrc_trusted?(file)
-    rvm_known = RVM_PATH + 'config/rvmrcs'
-
-    file_md5 = Digest::MD5.hexdigest("#{file}\n")
-    File.read(rvm_known.to_s).each do |line|
-      key, value = line.chomp.split('=', 2)
-      return value == '1' if key == file_md5
-    end
-
-    raise "RVM file #{file} is not marked as trusted/untrusted"
-  end
-
-  def load_rvmrc(rvmrc)
-    return unless rvmrc_trusted?(rvmrc)
-
-    rvm_script = RVM_PATH + 'scripts/rvm'
-    rvm_env = YAML.load(capture_command(
-      '/usr/bin/env', '-i',
-      "HOME=#{HOME_DIR}",
-      '/bin/bash', '-c',
-      "source '#{rvm_script}'; source '#{rvmrc}'; echo 'CAPTURE'; ruby -ryaml -e 'puts ENV.to_hash.to_yaml'"
-    ))
-
-    rvm_env.each do |key, value|
-      next unless key =~ /(RUBY|BUNDLE|GEM|PATH)/
-      if key == 'PATH'
-        old = ENV['PATH'].split(':').reject {|p| p.start_with?(ENV['HOME'])}
-        new = value.split(':')
-        ENV['PATH'] = (old + new).uniq.join(':')
-      else
-        ENV[key] = value
-      end
-    end
-
-    version, gemset = File.basename(rvm_env['BUNDLE_PATH']).split('@')
-    puts "Using RVM version #{version}, gemset #{gemset}."
   end
 
 
