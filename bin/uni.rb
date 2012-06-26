@@ -72,13 +72,13 @@ require 'socket'
 class Uni
   HOME_DIR = Pathname.new(ENV['HOME'])
   RVM_PATH = HOME_DIR + '.rvm'
-  
+
   UNI_PATH     = HOME_DIR + '.uni'
   CONFIG_PATH  = UNI_PATH + 'conf'
   RUN_PATH     = UNI_PATH + 'run'
-  
+
   attr_reader :name
-  
+
   def initialize(name)
     @name = name
   end
@@ -96,23 +96,23 @@ class Uni
       puts "No '#{name}' unicorn is running."
       exit(1)
     end
-    
+
     puts "Sending shutdown signal to Unicorn (PID #{pid})."
     Process.kill('QUIT', pid)
-    
+
     wait(30, 'Waiting for process to exit') do
       find_unicorn_process.nil?
     end
-    
+
     puts
     puts "Unicorn has shut down."
   end
 
   private
 
-  
+
   ### Basic actions
-  
+
   def run
     work_dir = Pathname.new(config.working_directory)
     rvmrc = work_dir + '.rvmrc'
@@ -141,10 +141,10 @@ class Uni
       puts "READY: Quick restart complete."
     end
   end
-  
-  
+
+
   ### Restart methods ###
-  
+
   def restart_quick(pid)
     old_workers = get_worker_pids(pid)
 
@@ -158,7 +158,7 @@ class Uni
       new_workers = get_worker_pids(pid) - old_workers
       new_workers.count >= expect
     end
-    
+
     host, port = config.listen.split(':')
     wait(connect_timeout, 'Waiting for a new worker connection') do
       test_connection(host, port, new_workers)
@@ -168,13 +168,13 @@ class Uni
   def restart_full(old_pid)
     puts "Sending launch signal to existing Unicorn (PID #{old_pid})."
     Process.kill('USR2', old_pid)
-    
+
     new_pid = wait(10, 'Waiting for new process') do
       find_unicorn_process(old_pid)
     end
 
     puts "New Unicorn launched: #{new_pid}"
-    
+
     begin
       expect = config.worker_processes.to_i
       worker_pids = nil
@@ -183,11 +183,11 @@ class Uni
           puts ' (died)'
           return restart_full_abort(old_pid)
         end
-        
+
         worker_pids = get_worker_pids(new_pid)
         worker_pids.count >= expect
       end
-    
+
       puts "Shutting down workers for old Unicorn."
       Process.kill('WINCH', old_pid)
 
@@ -195,7 +195,7 @@ class Uni
       wait(connect_timeout, 'Waiting for a new worker connection') do
         test_connection(host, port, worker_pids)
       end
-    
+
       puts "Shutting down old Unicorn."
       Process.kill('QUIT', old_pid)
       save_config
@@ -224,7 +224,7 @@ class Uni
 
     print "#{status}: "
     $stdout.flush
-    
+
     1.upto(secs).each do
       sleep(1)
       print '.'
@@ -239,8 +239,8 @@ class Uni
     puts ' (timeout)'
     raise TimeoutError
   end
-  
-  
+
+
   ### Unicorn utility functions ###
 
   def find_unicorn_process(reject = nil)
@@ -249,15 +249,15 @@ class Uni
     rescue Errno::ENOENT
       return nil
     end
-    
-    pid = pid_file.read.to_i    
+
+    pid = pid_file.read.to_i
     if pid > 0 && pid != reject
       process_list do |l_pid, command|
         next unless pid == l_pid
         return command =~ /unicorn/ ? pid : nil
       end
     end
-    
+
     nil
   end
 
@@ -301,17 +301,17 @@ class Uni
       end
     end
   end
-  
+
   def capture_command(*command)
     output = ''
     run_command(*command) do |fh|
       output = fh.read.lines.to_a
     end
-    
+
     raise 'Cannot find start of capture data' unless index = output.index("CAPTURE\n")
     output.drop(index).join
   end
-  
+
   def process_list
     run_command('ps', 'x', '-o', 'pid,command') do |fh|
       fh.each_line do |line|
@@ -327,7 +327,7 @@ class Uni
 
   def rvmrc_trusted?(file)
     rvm_known = RVM_PATH + 'config/rvmrcs'
-    
+
     file_md5 = Digest::MD5.hexdigest("#{file}\n")
     File.read(rvm_known.to_s).each do |line|
       key, value = line.chomp.split('=', 2)
@@ -336,7 +336,7 @@ class Uni
 
     raise "RVM file #{file} is not marked as trusted/untrusted"
   end
-  
+
   def load_rvmrc(rvmrc)
     return unless rvmrc_trusted?(rvmrc)
 
@@ -347,7 +347,7 @@ class Uni
       '/bin/bash', '-c',
       "source '#{rvm_script}'; source '#{rvmrc}'; echo 'CAPTURE'; ruby -ryaml -e 'puts ENV.to_hash.to_yaml'"
     ))
-    
+
     rvm_env.each do |key, value|
       next unless key =~ /(RUBY|BUNDLE|GEM|PATH)/
       if key == 'PATH'
@@ -358,25 +358,25 @@ class Uni
         ENV[key] = value
       end
     end
-    
+
     version, gemset = File.basename(rvm_env['BUNDLE_PATH']).split('@')
     puts "Using RVM version #{version}, gemset #{gemset}."
   end
-  
-  
+
+
   ### Config management ###
-  
+
   def config
     @config ||= load_config
   end
-  
+
   def old_config
     @old_config ||= load_old_config
   end
-  
+
   def load_config
     raise "Configuration not found: '#{name}'" unless config_file.exist?
-    
+
     loader = Loader.new
     loader.load(config_file)
     Config.new(loader.data)
@@ -392,16 +392,16 @@ class Uni
       nil
     end
   end
-  
+
   def save_config
     File.open(old_config_file, 'w') do |fh|
       fh.puts config.data.to_yaml
     end
   end
-  
-  
+
+
   ### Filenames ###
-  
+
   def config_file
     CONFIG_PATH + "#{name}.conf.rb"
   end
@@ -417,49 +417,49 @@ class Uni
   end
 
   ### Timeouts ###
-  
+
   def workers_timeout
     config.preload_app ? 60 : 20
   end
   def connect_timeout
     config.preload_app ? 20 : 60
   end
-  
-  
+
+
   ### Support classes ###
-  
+
   class TimeoutError < StandardError; end
 
   class Loader
     attr_reader :data
-    
+
     def initialize
       @data = {}
     end
 
     def load(file)
       ENV.delete('UNI_LIB_PATH')
-      eval(File.read(file))    
+      eval(File.read(file))
     end
 
     def method_missing(name, *args)
       @data[name] = args.first
     end
   end
-  
+
   class Config
     attr_reader :data
-    
+
     def initialize(data)
       @data = data
     end
-    
+
     def method_missing(name, *args)
       raise "Config parameter not found: #{name}" unless @data.has_key?(name)
       @data[name]
     end
   end
-  
+
 end
 
 uni = Uni.new(ARGV.shift)
