@@ -242,11 +242,17 @@ class Uni
     nil
   end
 
-  def get_worker_pids(pid)
+  def get_worker_pids(parent_pid)
     pids = []
-    run_command('pstree', pid) do |fh|
+    run_command('lsof', '-FR', '-i', '@' + config.listen) do |fh|
+      pid = nil
       fh.each_line do |line|
-        pids << $1.to_i if line =~ /^\s[|\\]--- (\d+) /
+        case line.slice!(0, 1)
+        when 'p'
+          pid = line.to_i
+        when 'R'
+          pids << pid if line.to_i == parent_pid
+        end
       end
     end
     pids
@@ -257,9 +263,11 @@ class Uni
     my_port = Socket.unpack_sockaddr_in(sock.getsockname).first
 
     begin
-      run_command('lsof', '-i', ":#{my_port}") do |fh|
+      sock << 'GET / HTTP/1.0' # need to get unicorn's attention for lsof, oddly
+      run_command('lsof', '-Fp', '-i', ":#{my_port}") do |fh|
         fh.each_line do |line|
-          return true if line =~ /^ruby\s*(\d+)\s/ && pids.include?($1.to_i)
+          next unless line.slice!(0, 1) == 'p'
+          return true if pids.include?(line.to_i)
         end
       end
     ensure
@@ -275,6 +283,7 @@ class Uni
   def run_command(*command)
     IO.popen('-') do |fh|
       if fh.nil? # child
+        ENV['LC_CTYPE'] = 'C'
         exec(*command.map(&:to_s))
         Kernel.exit!(1)
       else # server
