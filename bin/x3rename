@@ -1,0 +1,90 @@
+#!/usr/bin/ruby
+
+# Quick and dirty script to either create a gap in a series
+# of numbered CAT/DAT files, or to collapse said gap(s).
+# It's used for modding EgoSoft's X3 games
+# (Terran Conflict, Albion Prelude), hence the name.
+
+files = Dir.entries('.').select do |file|
+  file =~ /^(\d+)\.[cd]at$/
+end.sort
+numbers = files.map { |f| f.split('.', 2).first.to_i }.uniq
+
+puts "#{numbers.count} CAT/DAT numbers in use."
+
+last_n = nil
+collapse = {}
+gap = 0
+numbers.each do |n|
+  if last_n && n != last_n + 1
+    puts "Gap detected between #{last_n} and #{n}."
+    gap += n - last_n - 1
+  end
+  collapse[n] = n - gap if gap > 0
+  last_n = n
+end
+puts "No gaps detected." if collapse.empty?
+
+force = false
+mode, *args = ARGV.select do |arg|
+  if arg == '-f'
+    force = true
+    false
+  else
+    true
+  end
+end
+
+renumber = {}
+
+case mode
+when 'grow'
+  pos, size = args.map(&:to_i)
+  raise "grow: No position specified." unless pos > 0
+  size ||= 1
+
+  pos  = pos.to_i
+  size = size.to_i
+
+  puts "Creating a #{size}-wide gap at #{pos}."
+  numbers.reverse.each do |n|
+    break if n < pos
+    renumber[n] = n + size
+  end
+
+  files = files.reverse
+when 'collapse'
+  renumber = collapse
+else
+  abort "Unknown mode: #{mode.inspect}"
+end
+
+rename = []
+files.each do |file|
+  old_num, extension = file.split('.', 2)
+  new_num = renumber[old_num.to_i]
+
+  rename << [file, "#{new_num}.#{extension}"] if new_num
+end
+
+puts
+abort "No files needed renaming." if rename.empty?
+
+if force then
+  puts "Renaming files:"
+else
+  puts "The following files will be renamed:"
+end
+
+rename.each do |from, to|
+  puts "\t#{from} -> #{to}"
+
+  if force
+    raise "File exists: #{to}" if File.exist?(to)
+    File.rename(from, to)
+  end
+end
+
+unless force
+  puts "Apply these changes with -f."
+end
