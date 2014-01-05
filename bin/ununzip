@@ -1,0 +1,84 @@
+#!/usr/bin/env ruby
+
+# Quick and dirty script to undo an unzip.
+# Looks at the output, does some sanity checks against
+# files on disk, and if all is well, deletes them.
+
+require 'time'
+require 'set'
+
+force = dry_run = false
+zipfiles = ARGV.select do |arg|
+  if arg == '-f'
+    force = true
+    false
+  elsif arg == '-n'
+    dry_run = true
+    false
+  else
+    true
+  end
+end
+
+def format_time(time)
+  time.strftime("%Y-%m-%d %H:%M")
+end
+
+def check_file(file, size, stamp)
+  errors = []
+  stat = File.stat(file)
+  errors << "Wrong size: #{file}, expected #{size}" unless stat.size == size
+
+  [:mtime].each do |method|
+    time = stat.send(method)
+    time_parts = time.to_a
+    time_parts[0] = 0
+    time = Time.local(*time_parts)
+
+    errors << "Wrong #{method}: #{format_time(time)}, expected #{format_time(stamp)}" unless time == stamp
+  end
+  errors
+rescue Errno::ENOENT
+  ["File not found"]
+end
+
+has_errors = false
+files = Set.new
+
+zipfiles.each do |zipfile|
+  IO.popen(['unzip', '-l', zipfile], 'r') do |fh|
+    fh.each_line do |line|
+      next unless line =~ /^\s*(\d+)\s+([\d-]+)\s+([\d:]+)\s+(.*)$/
+      size, date, time, file = $1.to_i, $2, $3, $4.chomp
+      next if file.end_with?('/')
+
+      month, day, year = date.split('-', 3) # so archaic
+      stamp = Time.parse("#{year}-#{month}-#{day} #{time}")
+
+      errors = check_file(file, size, stamp)
+      if !errors.empty?
+        has_errors = true
+        puts "#{file}:"
+        errors.each do |err|
+          puts "\t#{err}"
+        end
+        puts
+      end
+      files << file
+    end
+  end
+  raise "unzip failed on #{zipfile.inspect}" unless $?.success?
+end
+
+abort("Errors detected; use -f to ignore.") if has_errors && !force
+
+if dry_run
+  puts "Would delete these files:"
+else
+  puts "Deleting files:"
+end
+
+files.sort.each do |file|
+  puts "\t#{file}"
+  File.unlink(file) unless dry_run
+end
